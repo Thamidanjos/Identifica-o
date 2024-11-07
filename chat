@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatPDF</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        h1, h3, h2 {
+           color: #333; 
+        }
+        #questionInput {
+            width: 80%;
+            padding: 15px;
+            font-size: 18px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+        }
+        #sendButton {
+            font-size: 18px;
+            padding: 15px 30px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #sendButton:hover {
+            background-color: #45a049;
+        }
+        #output {
+            margin-top: 20px;
+        }
+        .header-image {
+            width: 20%;
+            max-width: 200px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <center>
+        <div class="image-container">
+            <img class="header-image" src="https://governanca.cfa.org.br/wp-content/uploads/2024/07/Black-White-Minimalist-Letter-MC-Logo-2.png" alt="Header Image" />
+        </div>
+        <input id="questionInput" type="text" placeholder="Digite aqui sua pergunta" />
+        <button id="sendButton" onclick="handleQuestion()">Enviar</button>
+        <h6>ChatPDF pode cometer erros. Considere verificar informações importantes.</h6>
+    </center>
+    <div id="output"></div>
+
+    <script>
+        const API_KEY = 'sec_CjS8Voo69kYv8sQWa75JuNaSwUK4fmpM';
+        const UPLOAD_URL = 'https://api.chatpdf.com/v1/sources/add-file';
+        const CHAT_URL = 'https://api.chatpdf.com/v1/chats/message';
+        const file_paths = [
+            'https://raw.githubusercontent.com/Thamidanjos/Resolu-o-01/main/Resolu%C3%A7%C3%A3o%20_603%2C%20606%2C%20609%2C%20619%2C%20621%20.pdf',
+            'https://raw.githubusercontent.com/Thamidanjos/Resolu-o-02/main/RESOLU%C3%87%C3%95ES%20625%2C%20629%2C%20632.pdf',
+            'https://raw.githubusercontent.com/Thamidanjos/Resolu-o-03/main/Resolu%C3%A7%C3%B5es%20633%2C%20635%2C%20636.pdf',
+            'https://raw.githubusercontent.com/Thamidanjos/Resolu-o-04/main/Resolu%C3%A7%C3%B5es%20638%2C%20639%2C%20640%20.pdf',
+            'https://raw.githubusercontent.com/Thamidanjos/Resolu-o-05/main/Resolu%C3%A7%C3%B5es%20641%2C%20643.pdf',
+            'https://raw.githubusercontent.com/Thamidanjos/Resolu-o-06/main/Resolu%C3%A7%C3%B5es%20645%2C%20647%2C%20648%2C%20649.pdf',
+            'https://raw.githubusercontent.com/Thamidanjos/Resolu-o-07/main/_Resolu%C3%A7%C3%A3o%20%20653.pdf'
+        ];
+        let sourceIds = [];
+
+        async function uploadPdfs() {
+            for (const file_path of file_paths) {
+                const response = await fetch(file_path);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const formData = new FormData();
+                    formData.append('file', blob, 'Base Resoluções IA.pdf');
+
+                    const uploadResponse = await fetch(UPLOAD_URL, {
+                        method: 'POST',
+                        headers: {
+                            'x-api-key': API_KEY
+                        },
+                        body: formData
+                    });
+                    const uploadData = await uploadResponse.json();
+                    sourceIds.push(uploadData.sourceId);
+                } else {
+                    document.getElementById('output').innerHTML += `Erro ao carregar o arquivo PDF: ${file_path}<br>`;
+                }
+            }
+            document.getElementById('output').innerHTML += `Source IDs: ${sourceIds.join(', ')}<br>`;
+        }
+
+        async function handleQuestion() {
+            const question = document.getElementById('questionInput').value;
+            if (question.trim() !== '' && sourceIds.length > 0) {
+                for (const sourceId of sourceIds) {
+                    const payload = {
+                        sourceId: sourceId,
+                        referenceSources: true,
+                        messages: [{ 'role': 'user', 'content': question }]
+                    };
+                    const response = await fetch(CHAT_URL, {
+                        method: 'POST',
+                        headers: {
+                            'x-api-key': API_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json();
+                    const correctAnswer = data.content;
+
+                    // Verifica se a resposta começa com as frases específicas
+                    const startsWithSpecificPhrase = correctAnswer.startsWith("A fonte fornecida não contém informações sobre") ||
+                                                      correctAnswer.startsWith("O documento fornecido não contém informações específicas") ||
+                                                      correctAnswer.startsWith("A fonte não contém informações sobre")||
+                                                      correctAnswer.startsWith("A fonte fornecida não contém informações específicas sobre") ;
+
+                    // Se começar com as frases específicas, é incorreta; caso contrário, é correta
+                    const isCorrect = !startsWithSpecificPhrase;
+                    displayResponse(correctAnswer, data.references, sourceId, isCorrect);
+                }
+            } else if (sourceIds.length === 0) {
+                document.getElementById('output').innerHTML = 'Erro: Nenhum Source ID encontrado. Tente recarregar a página.';
+            }
+        }
+
+        function displayResponse(answer, references, sourceId, isCorrect) {
+            const outputDiv = document.getElementById('output');
+            let referencesText = '';
+            if (references && references.length > 0) {
+                referencesText = '<h4>Referências:</h4><ul>';
+                references.forEach(ref => {
+                    referencesText += `<li>Página ${ref.pageNumber}</li>`;
+                });
+                referencesText += '</ul>';
+            }
+            outputDiv.innerHTML += `
+                <h3>Resposta para Source ID ${sourceId}:</h3>
+                <p>${answer}</p>
+                <p>${isCorrect ? "Resposta correta!" : "Resposta incorreta."}</p>
+                ${referencesText}
+                <br><br>
+            `;
+        }
+
+        window.onload = uploadPdfs;
+    </script>
+</body>
+</html>
