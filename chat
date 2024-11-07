@@ -117,19 +117,22 @@
                     // Verifica se a resposta começa com as frases específicas
                     const startsWithSpecificPhrase = correctAnswer.startsWith("A fonte fornecida não contém informações sobre") ||
                                                       correctAnswer.startsWith("O documento fornecido não contém informações específicas") ||
-                                                      correctAnswer.startsWith("A fonte não contém informações sobre")||
-                                                      correctAnswer.startsWith("A fonte fornecida não contém informações específicas sobre") ;
+                                                      correctAnswer.startsWith("A fonte não contém informações sobre") ||
+                                                      correctAnswer.startsWith("A fonte fornecida não contém informações específicas sobre")||
+                                                      correctAnswer.startsWith("O documento fornecido não contém informações sobre");
 
                     // Se começar com as frases específicas, é incorreta; caso contrário, é correta
                     const isCorrect = !startsWithSpecificPhrase;
-                    displayResponse(correctAnswer, data.references, sourceId, isCorrect);
+                    if (isCorrect) {
+                        displayResponse(correctAnswer, data.references, sourceId);
+                    }
                 }
             } else if (sourceIds.length === 0) {
                 document.getElementById('output').innerHTML = 'Erro: Nenhum Source ID encontrado. Tente recarregar a página.';
             }
         }
 
-        function displayResponse(answer, references, sourceId, isCorrect) {
+        function displayResponse(answer, references, sourceId) {
             const outputDiv = document.getElementById('output');
             let referencesText = '';
             if (references && references.length > 0) {
@@ -142,7 +145,6 @@
             outputDiv.innerHTML += `
                 <h3>Resposta para Source ID ${sourceId}:</h3>
                 <p>${answer}</p>
-                <p>${isCorrect ? "Resposta correta!" : "Resposta incorreta."}</p>
                 ${referencesText}
                 <br><br>
             `;
